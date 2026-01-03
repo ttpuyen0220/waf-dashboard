@@ -397,7 +397,7 @@ export default function DomainsPage() {
             </CardContent>
           </Card>
         ) : (
-          domains.map((domain) => (
+          domains?.map((domain) => (
             <Card key={domain.id} className="border-border/50 animate-fade-in">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
@@ -435,7 +435,7 @@ export default function DomainsPage() {
                           Nameservers:
                         </span>
                         <div className="mt-1 space-y-1">
-                          {domain.nameservers.map((ns, i) => (
+                          {domain?.nameservers?.map((ns, i) => (
                             <p
                               key={i}
                               className="font-mono text-xs bg-background px-2 py-1 rounded"
