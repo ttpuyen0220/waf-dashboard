@@ -43,10 +43,9 @@ export interface SystemStatus {
 
 // Domain types
 export interface Domain {
-  _id: string;
+  id: string;
   user_id: string;
   name: string;
-  target_ip: string;
   proxied: boolean;
   nameservers: string[];
   status: "active" | "pending_verification";
@@ -57,10 +56,6 @@ export interface AddDomainRequest {
   name: string;
 }
 
-export interface VerifyDomainRequest {
-  domain_id: string;
-}
-
 export interface VerifyDomainResponse {
   status: string;
   message: string;
@@ -68,11 +63,22 @@ export interface VerifyDomainResponse {
 }
 
 // DNS Record types
-export interface AddDNSRecordRequest {
-  domain: string;
+export interface DNSRecord {
+  id: number;
+  name: string;
   type: string;
   content: string;
-  proxied: boolean;
+  ttl: number;
+  proxied?: boolean;
+}
+
+export interface AddDNSRecordRequest {
+  domain_id: string;
+  name: string; // "@" for root, "www", "api", etc.
+  type: string; // "A", "CNAME", "MX", "TXT"
+  content: string; // "1.2.3.4" or target
+  ttl?: number; // Optional, default 300
+  proxied: boolean; // TRUE = Through WAF, FALSE = Direct
 }
 
 // Rule types

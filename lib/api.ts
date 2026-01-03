@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+
 import type {
   LoginRequest,
   RegisterRequest,
@@ -7,8 +8,8 @@ import type {
   SystemStatus,
   Domain,
   AddDomainRequest,
-  VerifyDomainRequest,
   VerifyDomainResponse,
+  DNSRecord,
   AddDNSRecordRequest,
   Rule,
   AddCustomRuleRequest,
@@ -16,19 +17,17 @@ import type {
   AttackLog,
 } from "@/types";
 
-// Get API URL from localStorage or use default
-export function getApiUrl(): string {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("api_url") || "";
-  }
-  return "";
+// Get API URL from environment variable
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+// Check if API URL is configured
+export function isApiConfigured(): boolean {
+  return !!API_URL;
 }
 
-// Set API URL in localStorage
-export function setApiUrl(url: string): void {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("api_url", url);
-  }
+// Get the API URL (for display purposes)
+export function getApiUrl(): string {
+  return API_URL;
 }
 
 // Generic API call handler with error handling
@@ -36,15 +35,15 @@ async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T | null> {
-  const apiUrl = getApiUrl();
-  
-  if (!apiUrl) {
-    toast.error("API URL not configured. Please set it in Settings.");
+  if (!API_URL) {
+    toast.error(
+      "API URL not configured.  Please set NEXT_PUBLIC_API_URL in . env. local"
+    );
     return null;
   }
 
   try {
-    const response = await fetch(`${apiUrl}${endpoint}`, {
+    const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       credentials: "include",
       headers: {
@@ -53,11 +52,40 @@ async function apiCall<T>(
       },
     });
 
+    // 401 is expected when checking auth without a session
+    if (response.status === 401) {
+      return null;
+    }
+
+    // Try to parse JSON regardless of status code
+    let data: T | null = null;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      try {
+        const text = await response.text();
+        if (text) {
+          data = JSON.parse(text);
+        }
+      } catch {
+        // Not valid JSON
+      }
+    }
+
     if (!response.ok) {
+      if (data && typeof data === "object") {
+        const hasMessage =
+          "message" in data || "status" in data || "error" in data;
+        if (hasMessage) {
+          return data;
+        }
+      }
       throw new Error(`HTTP ${response.status}`);
     }
 
-    return await response.json();
+    return data;
   } catch (error) {
     console.error("API call failed:", error);
     toast.error("Something went wrong. Please try again.");
@@ -66,7 +94,9 @@ async function apiCall<T>(
 }
 
 // Auth API calls
-export async function register(data: RegisterRequest): Promise<AuthResponse | null> {
+export async function register(
+  data: RegisterRequest
+): Promise<AuthResponse | null> {
   return apiCall<AuthResponse>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(data),
@@ -98,7 +128,9 @@ export async function getDomains(): Promise<Domain[] | null> {
   return apiCall<Domain[]>("/api/domains");
 }
 
-export async function addDomain(data: AddDomainRequest): Promise<Domain | null> {
+export async function addDomain(
+  data: AddDomainRequest
+): Promise<Domain | null> {
   return apiCall<Domain>("/api/domains/add", {
     method: "POST",
     body: JSON.stringify(data),
@@ -106,34 +138,59 @@ export async function addDomain(data: AddDomainRequest): Promise<Domain | null> 
 }
 
 export async function verifyDomain(
-  data: VerifyDomainRequest
+  domainId: string
 ): Promise<VerifyDomainResponse | null> {
-  return apiCall<VerifyDomainResponse>("/api/domains/verify", {
+  return apiCall<VerifyDomainResponse>(`/api/domains/verify?id=${domainId}`, {
     method: "POST",
-    body: JSON.stringify(data),
   });
 }
 
-// DNS API calls
-export async function addDNSRecord(data: AddDNSRecordRequest): Promise<any | null> {
+// DNS Record API calls
+export async function getDNSRecords(
+  domainId: string
+): Promise<DNSRecord[] | null> {
+  return apiCall<DNSRecord[]>(`/api/dns/records?domain_id=${domainId}`);
+}
+
+export async function addDNSRecord(
+  data: AddDNSRecordRequest
+): Promise<any | null> {
   return apiCall("/api/dns/records", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
+export async function deleteDNSRecord(
+  domainId: string,
+  recordId: number
+): Promise<any | null> {
+  return apiCall(
+    `/api/dns/records? domain_id=${domainId}&record_id=${recordId}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
 // Rules API calls
-export async function getGlobalRules(domainId?: string): Promise<Rule[] | null> {
+export async function getGlobalRules(
+  domainId?: string
+): Promise<Rule[] | null> {
   const query = domainId ? `?domain_id=${domainId}` : "";
   return apiCall<Rule[]>(`/api/rules/global${query}`);
 }
 
-export async function getCustomRules(domainId?: string): Promise<Rule[] | null> {
+export async function getCustomRules(
+  domainId?: string
+): Promise<Rule[] | null> {
   const query = domainId ? `?domain_id=${domainId}` : "";
   return apiCall<Rule[]>(`/api/rules/custom${query}`);
 }
 
-export async function addCustomRule(data: AddCustomRuleRequest): Promise<any | null> {
+export async function addCustomRule(
+  data: AddCustomRuleRequest
+): Promise<any | null> {
   return apiCall("/api/rules/custom/add", {
     method: "POST",
     body: JSON.stringify(data),
@@ -141,7 +198,7 @@ export async function addCustomRule(data: AddCustomRuleRequest): Promise<any | n
 }
 
 export async function deleteCustomRule(ruleId: string): Promise<any | null> {
-  return apiCall(`/api/rules/custom/delete?id=${ruleId}`, {
+  return apiCall(`/api/rules/custom/delete? id=${ruleId}`, {
     method: "DELETE",
   });
 }
@@ -159,16 +216,16 @@ export async function getLogs(): Promise<AttackLog[] | null> {
 }
 
 // SSE for real-time logs
-export function createLogStream(onMessage: (log: AttackLog) => void): EventSource | null {
-  const apiUrl = getApiUrl();
-  
-  if (!apiUrl) {
+export function createLogStream(
+  onMessage: (log: AttackLog) => void
+): EventSource | null {
+  if (!API_URL) {
     toast.error("API URL not configured.");
     return null;
   }
 
   try {
-    const eventSource = new EventSource(`${apiUrl}/api/stream`, {
+    const eventSource = new EventSource(`${API_URL}/api/stream`, {
       withCredentials: true,
     });
 

@@ -12,15 +12,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const checkAuthentication = async () => {
+      setLoading(true);
       const result = await checkAuth();
       if (result && result.authenticated && result.user) {
         setUser(result.user);
       } else {
         setUser(null);
-        if (!pathname.startsWith("/login") && !pathname.startsWith("/register")) {
+        if (
+          !pathname.startsWith("/login") &&
+          !pathname.startsWith("/register")
+        ) {
           router.push("/login");
         }
       }
+      setLoading(false);
     };
 
     checkAuthentication();

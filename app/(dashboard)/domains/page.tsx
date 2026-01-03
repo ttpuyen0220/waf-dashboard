@@ -6,10 +6,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { getDomains, addDomain, verifyDomain } from "@/lib/api";
-import { Domain } from "@/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  getDomains,
+  addDomain,
+  verifyDomain,
+  getDNSRecords,
+  addDNSRecord,
+  deleteDNSRecord,
+} from "@/lib/api";
+import { Domain, DNSRecord } from "@/types";
 import { toast } from "sonner";
-import { Plus, Globe, CheckCircle, Clock } from "lucide-react";
+import {
+  Plus,
+  Globe,
+  CheckCircle,
+  Clock,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  ShieldOff,
+  X,
+} from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 export default function DomainsPage() {
@@ -18,6 +44,23 @@ export default function DomainsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newDomainName, setNewDomainName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+
+  // DNS Records state
+  const [expandedDomain, setExpandedDomain] = useState<string | null>(null);
+  const [dnsRecords, setDnsRecords] = useState<Record<string, DNSRecord[]>>({});
+  const [loadingRecords, setLoadingRecords] = useState<string | null>(null);
+
+  // Add Record Modal
+  const [showAddRecordModal, setShowAddRecordModal] = useState(false);
+  const [selectedDomainForRecord, setSelectedDomainForRecord] =
+    useState<Domain | null>(null);
+  const [newRecord, setNewRecord] = useState({
+    name: "",
+    type: "A",
+    content: "",
+    proxied: true,
+  });
+  const [isAddingRecord, setIsAddingRecord] = useState(false);
 
   useEffect(() => {
     fetchDomains();
@@ -47,7 +90,7 @@ export default function DomainsPage() {
   };
 
   const handleVerifyDomain = async (domainId: string) => {
-    const result = await verifyDomain({ domain_id: domainId });
+    const result = await verifyDomain(domainId);
     if (result) {
       if (result.status === "active") {
         toast.success(result.message);
@@ -56,6 +99,94 @@ export default function DomainsPage() {
         toast.error(result.message);
       }
     }
+  };
+
+  const toggleDomainExpand = async (domain: Domain) => {
+    if (expandedDomain === domain.id) {
+      setExpandedDomain(null);
+      return;
+    }
+
+    setExpandedDomain(domain.id);
+
+    // Fetch DNS records if not already loaded
+    if (!dnsRecords[domain.id]) {
+      setLoadingRecords(domain.id);
+      const records = await getDNSRecords(domain.id);
+      if (records) {
+        setDnsRecords((prev) => ({ ...prev, [domain.id]: records }));
+      }
+      setLoadingRecords(null);
+    }
+  };
+
+  const openAddRecordModal = (domain: Domain) => {
+    setSelectedDomainForRecord(domain);
+    setNewRecord({ name: "", type: "A", content: "", proxied: true });
+    setShowAddRecordModal(true);
+  };
+
+  const handleAddRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDomainForRecord) return;
+
+    setIsAddingRecord(true);
+
+    const result = await addDNSRecord({
+      domain_id: selectedDomainForRecord.id,
+      name: newRecord.name || "@",
+      type: newRecord.type,
+      content: newRecord.content,
+      proxied: newRecord.proxied,
+    });
+
+    if (result && result.status === "success") {
+      toast.success("DNS record added successfully!");
+
+      // Refresh records for this domain
+      const records = await getDNSRecords(selectedDomainForRecord.id);
+      if (records) {
+        setDnsRecords((prev) => ({
+          ...prev,
+          [selectedDomainForRecord.id]: records,
+        }));
+      }
+
+      setShowAddRecordModal(false);
+      setNewRecord({ name: "", type: "A", content: "", proxied: true });
+    } else if (result && result.message) {
+      toast.error(result.message);
+    }
+
+    setIsAddingRecord(false);
+  };
+
+  const handleDeleteRecord = async (domainId: string, recordId: number) => {
+    const result = await deleteDNSRecord(domainId, recordId);
+
+    if (result && result.status === "success") {
+      toast.success("Record deleted successfully!");
+
+      // Remove from local state
+      setDnsRecords((prev) => ({
+        ...prev,
+        [domainId]: prev[domainId].filter((r) => r.id !== recordId),
+      }));
+    } else if (result && result.message) {
+      toast.error(result.message);
+    }
+  };
+
+  const getRecordTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      A: "bg-blue-500/20 text-blue-400",
+      AAAA: "bg-purple-500/20 text-purple-400",
+      CNAME: "bg-green-500/20 text-green-400",
+      MX: "bg-orange-500/20 text-orange-400",
+      TXT: "bg-gray-500/20 text-gray-400",
+      NS: "bg-yellow-500/20 text-yellow-400",
+    };
+    return colors[type] || "bg-gray-500/20 text-gray-400";
   };
 
   if (isLoading) {
@@ -88,8 +219,15 @@ export default function DomainsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <Card className="w-full max-w-md animate-fade-in">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Add New Domain</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAddModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <form onSubmit={handleAddDomain}>
               <CardContent className="space-y-4">
@@ -121,6 +259,131 @@ export default function DomainsPage() {
         </div>
       )}
 
+      {/* Add DNS Record Modal */}
+      {showAddRecordModal && selectedDomainForRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="w-full max-w-md animate-fade-in">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Add DNS Record</CardTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowAddRecordModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <form onSubmit={handleAddRecord}>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Domain</Label>
+                  <p className="text-sm text-muted-foreground font-mono">
+                    {selectedDomainForRecord.name}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="recordName">Name</Label>
+                    <Input
+                      id="recordName"
+                      placeholder="@ or www"
+                      value={newRecord.name}
+                      onChange={(e) =>
+                        setNewRecord({ ...newRecord, name: e.target.value })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Use @ for root domain
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="recordType">Type</Label>
+                    <Select
+                      value={newRecord.type}
+                      onValueChange={(value) =>
+                        setNewRecord({ ...newRecord, type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A">A</SelectItem>
+                        <SelectItem value="AAAA">AAAA</SelectItem>
+                        <SelectItem value="CNAME">CNAME</SelectItem>
+                        <SelectItem value="MX">MX</SelectItem>
+                        <SelectItem value="TXT">TXT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="recordContent">Content</Label>
+                  <Input
+                    id="recordContent"
+                    placeholder={
+                      newRecord.type === "A"
+                        ? "1.2.3.4"
+                        : newRecord.type === "CNAME"
+                        ? "target. example.com"
+                        : "Value"
+                    }
+                    value={newRecord.content}
+                    onChange={(e) =>
+                      setNewRecord({ ...newRecord, content: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+
+                {newRecord.type === "A" && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      {newRecord.proxied ? (
+                        <Shield className="h-4 w-4 text-orange-500" />
+                      ) : (
+                        <ShieldOff className="h-4 w-4 text-gray-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">
+                          {newRecord.proxied ? "Proxied" : "DNS Only"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {newRecord.proxied
+                            ? "Traffic flows through WAF"
+                            : "Direct connection to origin"}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={newRecord.proxied}
+                      onCheckedChange={(checked) =>
+                        setNewRecord({ ...newRecord, proxied: checked })
+                      }
+                    />
+                  </div>
+                )}
+              </CardContent>
+              <div className="flex gap-2 p-6 pt-0">
+                <Button type="submit" disabled={isAddingRecord}>
+                  {isAddingRecord ? "Adding..." : "Add Record"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAddRecordModal(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       {/* Domains List */}
       <div className="grid gap-4">
         {domains.length === 0 ? (
@@ -135,7 +398,7 @@ export default function DomainsPage() {
           </Card>
         ) : (
           domains.map((domain) => (
-            <Card key={domain._id} className="border-border/50 animate-fade-in">
+            <Card key={domain.id} className="border-border/50 animate-fade-in">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
@@ -144,7 +407,12 @@ export default function DomainsPage() {
                       <h3 className="text-xl font-semibold">{domain.name}</h3>
                       <Badge
                         variant={
-                          domain.status === "active" ? "success" : "outline"
+                          domain.status === "active" ? "default" : "outline"
+                        }
+                        className={
+                          domain.status === "active"
+                            ? "bg-green-500/20 text-green-400 border-green-500/50"
+                            : ""
                         }
                       >
                         {domain.status === "active" ? (
@@ -152,23 +420,26 @@ export default function DomainsPage() {
                         ) : (
                           <Clock className="mr-1 h-3 w-3" />
                         )}
-                        {domain.status === "active" ? "Active" : "Pending Verification"}
+                        {domain.status === "active"
+                          ? "Active"
+                          : "Pending Verification"}
                       </Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Target IP:</span>
-                        <p className="font-mono">{domain.target_ip}</p>
-                      </div>
-                      <div>
                         <span className="text-muted-foreground">Created:</span>
                         <p>{formatDate(domain.created_at)}</p>
                       </div>
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Nameservers:</span>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Nameservers:
+                        </span>
                         <div className="mt-1 space-y-1">
                           {domain.nameservers.map((ns, i) => (
-                            <p key={i} className="font-mono text-xs bg-background px-2 py-1 rounded">
+                            <p
+                              key={i}
+                              className="font-mono text-xs bg-background px-2 py-1 rounded"
+                            >
                               {ns}
                             </p>
                           ))}
@@ -176,15 +447,100 @@ export default function DomainsPage() {
                       </div>
                     </div>
                   </div>
-                  {domain.status === "pending_verification" && (
-                    <Button
-                      onClick={() => handleVerifyDomain(domain._id)}
-                      variant="outline"
-                    >
-                      Verify Domain
-                    </Button>
-                  )}
+
+                  <div className="flex gap-2">
+                    {domain.status === "pending_verification" ? (
+                      <Button
+                        onClick={() => handleVerifyDomain(domain.id)}
+                        variant="outline"
+                      >
+                        Verify Domain
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() => openAddRecordModal(domain)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="mr-1 h-4 w-4" />
+                          Add Record
+                        </Button>
+                        <Button
+                          onClick={() => toggleDomainExpand(domain)}
+                          variant="ghost"
+                          size="sm"
+                        >
+                          {expandedDomain === domain.id ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
+
+                {/* DNS Records Section */}
+                {expandedDomain === domain.id && domain.status === "active" && (
+                  <div className="mt-6 pt-6 border-t border-border/50">
+                    <h4 className="text-sm font-semibold mb-3">DNS Records</h4>
+
+                    {loadingRecords === domain.id ? (
+                      <div className="text-sm text-muted-foreground">
+                        Loading records...
+                      </div>
+                    ) : dnsRecords[domain.id]?.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        No DNS records yet. Add your first record to get
+                        started.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {dnsRecords[domain.id]?.map((record) => (
+                          <div
+                            key={record.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                          >
+                            <div className="flex items-center gap-4">
+                              <Badge
+                                className={`${getRecordTypeColor(
+                                  record.type
+                                )} border-0 font-mono`}
+                              >
+                                {record.type}
+                              </Badge>
+                              <div>
+                                <p className="font-mono text-sm">
+                                  {record.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground font-mono">
+                                  {record.content}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                TTL: {record.ttl}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() =>
+                                  handleDeleteRecord(domain.id, record.id)
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))

@@ -20,21 +20,22 @@
   --color-border: #1e293b;
   --color-input: #1e293b;
   --color-ring: #06b6d4;
-  
+
   --radius-lg: 0.5rem;
   --radius-md: calc(0.5rem - 2px);
   --radius-sm: calc(0.5rem - 4px);
-  
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
 }
 
 @layer base {
   * {
-    border-color: theme('colors.border');
+    border-color: theme("colors.border");
   }
   body {
-    background-color: theme('colors.background');
-    color: theme('colors.foreground');
+    background-color: theme("colors.background");
+    color: theme("colors.foreground");
     font-family: var(--font-sans);
     font-feature-settings: "rlig" 1, "calt" 1;
   }
@@ -71,12 +72,7 @@
 
 .animate-shimmer {
   animation: shimmer 2s infinite;
-  background: linear-gradient(
-    to right,
-    #111827 4%,
-    #1e293b 25%,
-    #111827 36%
-  );
+  background: linear-gradient(to right, #111827 4%, #1e293b 25%, #111827 36%);
   background-size: 1000px 100%;
 }
 

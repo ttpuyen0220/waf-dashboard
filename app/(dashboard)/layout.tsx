@@ -1,7 +1,6 @@
 "use client";
 
 import { Sidebar } from "@/components/dashboard/sidebar";
-import { ApiUrlPrompt } from "@/components/dashboard/api-url-prompt";
 
 export default function DashboardLayout({
   children,
@@ -10,13 +9,10 @@ export default function DashboardLayout({
 }) {
   return (
     <>
-      <ApiUrlPrompt />
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
         <main className="flex-1 overflow-y-auto bg-background">
-          <div className="container mx-auto p-6">
-            {children}
-          </div>
+          <div className="container mx-auto p-6">{children}</div>
         </main>
       </div>
     </>

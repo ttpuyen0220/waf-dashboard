@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getApiUrl, setApiUrl, logout } from "@/lib/api";
+import { getApiUrl, logout } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { toast } from "sonner";
 import { Save, LogOut, User, Mail, Link as LinkIcon } from "lucide-react";
@@ -23,7 +29,6 @@ export default function SettingsPage() {
 
   const handleSaveApiUrl = () => {
     setIsSaving(true);
-    setApiUrl(apiUrl);
     toast.success("API URL saved successfully!");
     setIsSaving(false);
   };
@@ -39,7 +44,9 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and application settings</p>
+        <p className="text-muted-foreground">
+          Manage your account and application settings
+        </p>
       </div>
 
       {/* User Profile */}
@@ -53,48 +60,20 @@ export default function SettingsPage() {
             <User className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Name</p>
-              <p className="text-sm text-muted-foreground">{user?.name || "N/A"}</p>
+              <p className="text-sm text-muted-foreground">
+                {user?.name || "N/A"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <Mail className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="text-sm font-medium">Email</p>
-              <p className="text-sm text-muted-foreground">{user?.email || "N/A"}</p>
+              <p className="text-sm text-muted-foreground">
+                {user?.email || "N/A"}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* API Configuration */}
-      <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5" />
-            API Configuration
-          </CardTitle>
-          <CardDescription>
-            Configure the backend API URL for this dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="api-url">API Base URL</Label>
-            <Input
-              id="api-url"
-              type="url"
-              placeholder="https://api.example.com"
-              value={apiUrl}
-              onChange={(e) => setApiUrlState(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Enter the base URL of your WAF API (e.g., https://api.example.com)
-            </p>
-          </div>
-          <Button onClick={handleSaveApiUrl} disabled={isSaving}>
-            <Save className="mr-2 h-4 w-4" />
-            {isSaving ? "Saving..." : "Save API URL"}
-          </Button>
         </CardContent>
       </Card>
 
