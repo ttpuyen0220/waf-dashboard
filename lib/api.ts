@@ -166,7 +166,7 @@ export async function deleteDNSRecord(
   recordId: number
 ): Promise<any | null> {
   return apiCall(
-    `/api/dns/records? domain_id=${domainId}&record_id=${recordId}`,
+    `/api/dns/records?domain_id=${domainId}&record_id=${recordId}`,
     {
       method: "DELETE",
     }
