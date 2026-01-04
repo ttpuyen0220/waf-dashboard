@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getSystemStatus, getLogs, createLogStream } from "@/lib/api";
+import { getSystemStatus, getSimpleLogs, createLogStream } from "@/lib/api";
 import { SystemStatus, AttackLog } from "@/types";
 import { getStatusColor, getActionColor, formatRelativeTime } from "@/lib/utils";
 import { Server, Database, Brain, Activity, Shield, AlertTriangle } from "lucide-react";
@@ -19,7 +19,7 @@ export default function DashboardPage() {
       const systemStatus = await getSystemStatus();
       if (systemStatus) setStatus(systemStatus);
 
-      const logs = await getLogs();
+      const logs = await getSimpleLogs();
       if (logs) {
         setRecentLogs(logs.slice(0, 10));
         const blocked = logs.filter(l => l.action === "Blocked").length;

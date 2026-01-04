@@ -15,6 +15,8 @@ import type {
   AddCustomRuleRequest,
   ToggleRuleRequest,
   AttackLog,
+  LogFilters,
+  LogsResponse,
 } from "@/types";
 
 // Get API URL from environment variable
@@ -211,8 +213,61 @@ export async function toggleRule(data: ToggleRuleRequest): Promise<any | null> {
 }
 
 // Logs API calls
-export async function getLogs(): Promise<AttackLog[] | null> {
-  return apiCall<AttackLog[]>("/api/logs/secure");
+export async function getLogs(
+  page: number = 1,
+  pageSize: number = 50,
+  filters?: LogFilters
+): Promise<LogsResponse | null> {
+  const params = new URLSearchParams();
+  params.append("page", page.toString());
+  params.append("pageSize", pageSize.toString());
+
+  if (filters) {
+    if (filters.ip) params.append("ip", filters.ip);
+    if (filters.action) params.append("action", filters.action);
+    if (filters.path) params.append("path", filters.path);
+    if (filters.source) params.append("source", filters.source);
+    if (filters.minScore !== undefined)
+      params.append("minScore", filters.minScore.toString());
+    if (filters.maxScore !== undefined)
+      params.append("maxScore", filters.maxScore.toString());
+    if (filters.minConfidence !== undefined)
+      params.append("minConfidence", filters.minConfidence.toString());
+    if (filters.startDate) params.append("startDate", filters.startDate);
+    if (filters.endDate) params.append("endDate", filters.endDate);
+    if (filters.search) params.append("search", filters.search);
+  }
+
+  const response = await apiCall<LogsResponse>(
+    `/api/logs/secure?${params.toString()}`
+  );
+
+  // Handle legacy API that returns array instead of paginated response
+  if (response && Array.isArray(response)) {
+    return {
+      logs: response as unknown as AttackLog[],
+      total: (response as unknown as AttackLog[]).length,
+      page: 1,
+      pageSize: (response as unknown as AttackLog[]).length,
+      totalPages: 1,
+    };
+  }
+
+  return response;
+}
+
+// Get simple logs list (for dashboard)
+export async function getSimpleLogs(): Promise<AttackLog[] | null> {
+  const response = await apiCall<AttackLog[] | LogsResponse>("/api/logs/secure");
+  
+  // Handle both array and paginated response
+  if (Array.isArray(response)) {
+    return response;
+  } else if (response && 'logs' in response) {
+    return response.logs;
+  }
+  
+  return null;
 }
 
 // SSE for real-time logs

@@ -134,3 +134,24 @@ export interface AttackLog {
   };
   timestamp: string;
 }
+
+export interface LogFilters {
+  ip?: string;
+  action?: "Blocked" | "Flagged" | "";
+  path?: string;
+  source?: "Rule Engine" | "ML Engine" | "Hybrid" | "";
+  minScore?: number;
+  maxScore?: number;
+  minConfidence?: number;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}
+
+export interface LogsResponse {
+  logs: AttackLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
